@@ -1,0 +1,70 @@
+services:
+  mongo:
+    image: mongo:7
+    privileged: true
+    container_name: mongo
+    ports:
+        - "27018:27017"
+    networks:
+      - app-network
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --quiet --eval "db.adminCommand(''ping'').ok" | grep 1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "8088:8080"
+    networks:
+      - app-network
+    environment:
+      MONGO_DB_URL: mongodb://mongo:27017
+      DATABASE_NAME: holidays
+      PORT: "8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "5173:3000"
+    networks:
+      - app-network
+    depends_on:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+volumes:
+  mongo-data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
+    name: app-network
